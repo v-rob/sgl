@@ -32,7 +32,6 @@ General:
 	* Finally, `deInit` must zero the structure.
 	* While these guidelines are somewhat long, they ensure that all allocations and files are
 	  handled in a uniform way without the benefits of automatic constructors and destructors.
-* Fixed point numbers TODO
 * Do not use the TRY block or error handling outside of the context of the global error handling
   mechanism.
 * All non-const global variables must be reset at the beginning of the `_main` function in case

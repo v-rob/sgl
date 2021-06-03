@@ -34,7 +34,7 @@ typedef uint32_t u32;
 #pragma GCC poison float
 #pragma GCC poison double
 
-// Boolean type. GCC4TI doesn't have `stdbool.h`, but it does have _Bool.
+// Boolean type. GCC4TI doesn't have `stdbool.h`, but it does have `_Bool`.
 typedef _Bool bool;
 #define TRUE 1
 #define FALSE 0
@@ -82,14 +82,13 @@ register s32 Debug asm("d7");
 	// ...
 	MAP_Pos pos_x = FXD_convert(MAP_Scroll, MAP_Pos, FXD_ceil(MAP_Scroll, scroll_x));
 	```
-	Signed integers typenames are also valid as arguments to any of these functions, but
-	specific types should be favored over plain integers when appropriate.
+	Signed integers typenames (i.e. s8, s16, and s32) are also valid as arguments to any of
+	these functions, but specific types should be favored over plain integers when appropriate.
 
 	For addition, subtraction, negation, and bitwise operations, simply use the normal
-	operators. To
-	multiply, divide, or modulus by an integer, use normal multiplication and division
-	operators. However, to multiply or divide two fixed numbers, the dedicated functions
-	`FXD_mult` and `FXD_div` must be used.
+	operators. To multiply, divide, or modulus by an integer, use normal multiplication and
+	division operators. However, to multiply or divide two fixed numbers, the dedicated
+	functions `FXD_mult` and `FXD_div` must be used.
 */
 
 // Integer point definitions
