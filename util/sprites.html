@@ -1,0 +1,204 @@
+<!-- Sprite Namer and Converter, Copyright (C) 2020 Matthew Robinson under the MIT license -->
+<title>Sprite Namer and Converter</title>
+
+<script>
+window.onload = function() {
+	var uploader = document.getElementById("uploader");
+	uploader.onchange = function() {
+		if (this.files && this.files[0]) {
+			var img = document.getElementById("image");
+			img.onload = loadImages;
+			img.src = URL.createObjectURL(this.files[0]);
+		}
+	};
+};
+
+function loadImages() {
+	var canvas = document.getElementById("canvas");
+	var image = document.getElementById("image");
+
+	var context = canvas.getContext("2d");
+
+	canvas.width = image.width;
+	canvas.height = image.height;
+	canvas.style.display = "";
+	var num_sprites = Math.floor(image.height / 8);
+
+	context.drawImage(image, 0, 0);
+
+	var display = document.getElementById("display");
+	display.innerHTML = "<tr><th width=100%>Name<th>Image";
+
+	for (var i = 0; i < num_sprites; i++) {
+		var table = document.createElement("table");
+		table.cellPadding = 0;
+		table.cellSpacing = 0;
+
+		for (var y = i * 8; y < (i + 1) * 8; y++) {
+			var tr = document.createElement("tr");
+			for (var x = 0; x < 8; x++) {
+				var td = document.createElement("td");
+
+				var imageData = context.getImageData(x, y, 1, 1).data;
+				td.style.backgroundColor = "rgb(" + imageData[0] + ", " + imageData[1] + ", " + imageData[2] + ")";
+				td.width = 5;
+				td.height = 5;
+
+				tr.insertAdjacentElement("beforeend", td);
+			}
+
+			table.insertAdjacentElement("beforeend", tr);
+		}
+
+		var tr = document.createElement("tr");
+		var name = document.createElement("td");
+
+		var img = document.createElement("td");
+		img.insertAdjacentElement("beforeend", table);
+
+		tr.insertAdjacentElement("beforeend", name);
+		tr.insertAdjacentElement("beforeend", img);
+
+		display.insertAdjacentElement("beforeend", tr);
+	}
+}
+
+function loadNames() {
+	var display = document.getElementById("display");
+	var names = document.getElementById("names").value.split("\n");
+	var prefix = document.getElementById("prefix").value;
+
+	for (var i = 1; i < display.rows.length; i++) {
+		if (i > names.length) {
+			display.rows[i].cells[0].textContent = "";
+			continue;
+		}
+
+		var name = names[i - 1];
+		if (name == "")
+			display.rows[i].cells[0].textContent = "";
+		else
+			display.rows[i].cells[0].textContent = (prefix + name).toUpperCase().split(" ").join("_");
+	}
+}
+
+function getData() {
+	var display = document.getElementById("display");
+	var enum_text = document.getElementById("enum");
+	var dark  = document.getElementById("dark");
+	var light = document.getElementById("light");
+	var mask  = document.getElementById("mask");
+
+	enum_text.textContent = "";
+	 dark.textContent = "";
+	light.textContent = "";
+	 mask.textContent = "";
+
+	for (var i = 1; i < display.rows.length; i++) {
+		var add_text = display.rows[i].cells[0].textContent;
+		if (add_text != "")
+			enum_text.insertAdjacentText("beforeend", "\t" + add_text + " = " + (i - 1) + ",\n");
+
+		 dark.insertAdjacentText("beforeend", "\t{");
+		light.insertAdjacentText("beforeend", "\t{");
+		 mask.insertAdjacentText("beforeend", "\t{");
+
+		var image = display.rows[i].cells[1].firstChild;
+		for (var y = 0; y < image.rows.length; y++) {
+			var dark_num  = "";
+			var light_num = "";
+			var mask_num  = "";
+
+			for (var x = 0; x < image.rows[y].cells.length; x++) {
+				var bgColor = image.rows[y].cells[x].style.backgroundColor;
+
+				if (bgColor == "rgb(255, 255, 255)") { // Transparent
+					dark_num  += "0";
+					light_num += "0";
+					mask_num  += "1";
+				} else if (bgColor == "rgb(196, 214, 196)") { // White
+					dark_num  += "0";
+					light_num += "0";
+					mask_num  += "0";
+				} else if (bgColor == "rgb(148, 158, 140)") { // Light
+					dark_num  += "0";
+					light_num += "1";
+					mask_num  += "0";
+				} else if (bgColor == "rgb(100, 102, 92)") { // Dark
+					dark_num  += "1";
+					light_num += "0";
+					mask_num  += "0";
+				} else if (bgColor == "rgb(52, 46, 36)") { // Black
+					dark_num  += "1";
+					light_num += "1";
+					mask_num  += "0";
+				}
+			}
+
+			 dark.insertAdjacentText("beforeend", "0x" + ("00" + parseInt(dark_num, 2).toString(16)).substr(-2));
+			light.insertAdjacentText("beforeend", "0x" + ("00" + parseInt(dark_num, 2).toString(16)).substr(-2));
+			 mask.insertAdjacentText("beforeend", "0x" + ("00" + parseInt(dark_num, 2).toString(16)).substr(-2));
+
+			if (y != image.rows.length - 1) {
+				 dark.insertAdjacentText("beforeend", ", ");
+				light.insertAdjacentText("beforeend", ", ");
+				 mask.insertAdjacentText("beforeend", ", ");
+			}
+		}
+
+		if (i != display.rows.length - 1) {
+			 dark.insertAdjacentText("beforeend", "},\n");
+			light.insertAdjacentText("beforeend", "},\n");
+			 mask.insertAdjacentText("beforeend", "},\n");
+		} else {
+			 dark.insertAdjacentText("beforeend", "}\n");
+			light.insertAdjacentText("beforeend", "}\n");
+			 mask.insertAdjacentText("beforeend", "}\n");
+		}
+	}
+
+	enum_text.insertAdjacentText("beforeend", "\t" + document.getElementById("prefix").value.toUpperCase() + "LEN = " + (display.rows.length - 1));
+}
+
+// https://stackoverflow.com/questions/1173194/select-all-div-text-with-single-mouse-click
+function selectText(id) {
+    if (document.selection) { // IE
+        var range = document.body.createTextRange();
+        range.moveToElementText(document.getElementById(id));
+        range.select();
+    } else if (window.getSelection) {
+        var range = document.createRange();
+        range.selectNode(document.getElementById(id));
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    }
+}
+</script>
+<style>
+td { font-family: monospace }
+pre {
+	border: 1px solid black;
+	-moz-tab-size: 4;
+	tab-size: 4;
+}
+</style>
+
+<img id="image" style="display: none">
+
+<table width=100% height=100%>
+	<tr>
+		<td rowspan=2 valign=top><canvas id="canvas" style="display: none"></canvas>
+		<td><input id="uploader" type="file">
+		<td><button onclick="loadNames()">Load Names</button>
+		<button onclick="getData()">Get Data</button>
+		<input id="prefix" placeholder="Enum Prefix">
+	<tr height=100%>
+		<td valign=top width=30%><table id="display" border=1 width=100%></table>
+		<td width=20%><textarea id="names" style="width: 100%; height: 100%; resize: none"></textarea>
+		<td width=50% valign=top><table width=100%>
+			<tr><td valign=top>Enum:<pre id="enum" onclick="selectText('enum')"></pre>
+			<tr><td valign=top>Dark Plane:<pre id="dark" onclick="selectText('dark')"></pre>
+			<tr><td valign=top>Light Plane:<pre id="light" onclick="selectText('light')"></pre>
+			<tr><td valign=top>Mask Plane:<pre id="mask" onclick="selectText('mask')"></pre>
+		</table>
+</table>

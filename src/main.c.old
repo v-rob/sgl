@@ -1,0 +1,387 @@
+// Super Grayland, Copyright 2020 Vincent Robinson under the MIT license. See 'LICENSE.txt' for more information.
+
+#define USE_TI89
+#define USE_TI92PLUS
+#define USE_V200
+
+// #define OPTIMIZE_ROM_CALLS
+#define MIN_AMS 100
+#define SAVE_SCREEN
+
+#include <tigcclib.h>
+
+// Debug TODO: Disable
+register int $d7 asm("d7");
+
+typedef  int8_t  s8;
+typedef uint8_t  u8;
+typedef  int16_t s16;
+typedef uint16_t u16;
+typedef  int32_t s32;
+typedef uint32_t u32;
+
+typedef u8 bool;
+#define true 1
+#define false 0
+
+#define PACKED_ENUM(enum, int) int
+
+// Tiles; tile names and tile sprite indexes are the same
+enum tile_type
+{
+	TILE_AIR,
+	TILE_BLOCK,
+	TILE_CROSS,
+	TILE_X,
+	TILE_LEN
+};
+
+// Solidity type of a tile
+enum solidity
+{
+	SOLIDITY_AIR,
+	SOLIDITY_CLOUD,
+	SOLIDITY_SOLID
+};
+
+// Special action or physics for a tile
+enum property
+{
+	PROPERTY_NORMAL,
+	PROPERTY_HAZARD,
+	PROPERTY_DEATH,
+	PROPERTY_SWIMMABLE,
+	PROPERTY_CLIMBABLE,
+	PROPERTY_SLIPPERY,
+	PROPERTY_STICKY,
+	PROPERTY_BOUNCY
+};
+
+// ID of a special tile or a built-in special tile
+// TODO: Place powerup inside block?
+enum special_id
+{
+	SPECIAL_NONE = 0,
+	SPECIAL_BUILT_IN_MARKER = 246,
+	SPECIAL_BRICK = 246,
+	SPECIAL_COIN_BRICK = 247,
+	SPECIAL_COIN_BLOCK = 248,
+	SPECIAL_MULTI_COIN_BLOCK = 249,
+	SPECIAL_CLOVER_BLOCK = 250,
+	SPECIAL_BOOMERANG_BLOCK = 251,
+	SPECIAL_TOP_BLOCK = 252,
+	SPECIAL_HEART_BLOCK = 253,
+	SPECIAL_MOON_BLOCK = 254,
+	SPECIAL_COIN = 255,
+};
+
+struct tile
+{
+	// 6 bytes
+
+	// Back and front layer tiles
+	PACKED_ENUM(enum tile_type, u16) back;
+	PACKED_ENUM(enum tile_type, u16) front;
+
+	// Special tile index to use, optionally one of 'enum special_id'
+	u8 special;
+
+	// How the tile interacts with objects
+	PACKED_ENUM(enum solidity, u8) solidity: 2;
+	PACKED_ENUM(enum property, u8) property: 3;
+
+	// Whether front and back layer tiles are in the foreground (in front of objects)
+	bool is_back_fg: 1;
+	bool is_front_fg: 1;
+
+	// Whether the special has been activated or not
+	bool special_activated: 1;
+};
+
+typedef s16 MAP_Pos;
+typedef struct { MAP_Pos x; MAP_Pos y; } v2_tile_t;
+
+// Load ze mapz
+#define _ {TILE_CROSS, TILE_AIR, SPECIAL_NONE, SOLIDITY_AIR, PROPERTY_NORMAL, false, false, false}
+#define x {TILE_X, TILE_BLOCK, SPECIAL_NONE, SOLIDITY_SOLID, PROPERTY_NORMAL, false, true, false}
+#define t {TILE_CROSS, TILE_AIR, SPECIAL_NONE, SOLIDITY_AIR, PROPERTY_NORMAL, false, false, false}
+#define o {TILE_BLOCK, TILE_AIR, SPECIAL_NONE, SOLIDITY_CLOUD, PROPERTY_NORMAL, true, false, false}
+
+struct tile map[40 * 20] = {
+	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,x,_,x,x,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,_,_,_,_,_,_,_,o,o,o,o,o,o,o,o,x,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,_,_,_,_,_,_,_,_,t,_,_,_,_,t,_,x,x,_,x,x,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,x,_,_,_,_,_,_,_,t,_,_,_,_,t,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,x,_,_,_,_,_,_,_,t,_,_,_,_,t,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
+	_,_,_,_,x,x,x,x,x,x,x,x,x,x,x,x,x,o,x,x,x,x,x,x,x,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,
+	_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,t,_,_,_,_,_,_,_,_,_,x,x,x,x,_,_,_,_,_,_,_,_,x,
+	_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,o,_,_,_,_,_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,x,
+	_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,t,_,_,_,_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,_,x,
+	_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,x,x,x,x,x,x,x,x,x,x,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,
+	_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,t,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,_,_,_,x,
+	_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,t,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,_,_,_,x,
+	_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,t,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,_,_,x,
+	_,_,_,_,x,_,_,_,_,_,_,_,_,_,_,_,_,t,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,_,_,x,
+	x,x,x,x,x,_,_,_,_,_,_,_,_,_,_,_,_,t,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,x,x,x,x,
+};
+
+#undef _
+#undef x
+#undef t
+#undef o
+
+enum wrap
+{
+	WRAP_NONE,
+	WRAP_OBJS,
+	WRAP_LEVEL
+};
+
+struct {
+	struct tile *tiles;
+	v2_tile_t size;
+	struct { s32 x; s32 y; } scroll;
+	// s16 scroll_x;
+	// s16 scroll_y;
+	// u8 subscroll_x;
+	// u8 subscroll_y;
+	enum wrap wrap_horiz;
+	enum wrap wrap_vert;
+} g_map = {
+	map,
+	{40, 20},
+	{0, 0},
+	WRAP_NONE,
+	WRAP_NONE,
+};
+
+// Generic tiles for tile collision off the level boundaries
+const struct tile PLAIN_AIR   = {.solidity = SOLIDITY_AIR};
+const struct tile PLAIN_SOLID = {.solidity = SOLIDITY_SOLID};
+
+const struct tile *MAP_getTile(MAP_Pos pos_x, MAP_Pos pos_y)
+{
+	// Handle objects/anything else going out of the level boundaries
+	if (pos_x < 0 || pos_x >= g_map.size.x) {
+		if (g_map.wrap_horiz) {
+			// Modfiy position to get the wrap-around tile if the level wraps
+			if (pos_x < 0)
+				pos_x = pos_x + g_map.size.x;
+			else
+				pos_x = pos_x - g_map.size.x;
+		} else {
+			// Return a generic solid tile to stop the player at the sides
+			return &PLAIN_SOLID;
+		}
+	}
+
+	if (pos_y < 0 || pos_y >= g_map.size.y) {
+		if (g_map.wrap_vert) {
+			if (pos_y < 0)
+				pos_y = pos_y + g_map.size.y;
+			else
+				pos_y = pos_y - g_map.size.y;
+		} else {
+			// Return a generic air tile to let the player jump above the level and fall off the cliff
+			return &PLAIN_AIR;
+		}
+	}
+
+	return &g_map.tiles[pos_y * g_map.size.x + pos_x];
+}
+
+// Tile sprites
+SPR_Sprite s_tile_sprites[] = {
+	{
+		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+	},
+	{
+		{0xFF, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xFF},
+		{0xFF, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xFF},
+		{0x00, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x00}
+	},
+	{
+		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		{0x24, 0x24, 0xE7, 0x00, 0x00, 0xE7, 0x24, 0x24},
+		{0xDB, 0xDB, 0x18, 0xFF, 0xFF, 0x18, 0xDB, 0xDB}
+	},
+	{
+		{0x81, 0x42, 0x24, 0x18, 0x18, 0x24, 0x42, 0x81},
+		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		{0x7E, 0xBD, 0xDB, 0xE7, 0xE7, 0xDB, 0xBD, 0x7E}
+	},
+};
+
+//! Get the sprite bank of tiles
+SPR_SpriteBank SPR_getTileBank()
+{
+	return s_tile_sprites;
+}
+
+void _main(void)
+{
+	if (!GrayOn())
+		return;
+
+	g_map.scroll.x = 0;
+	g_map.scroll.y = 0;
+	$d7 = 0x0;
+
+	HANDLE gray_handle = HeapAllocThrow(GRAYDBUFFER_SIZE);
+	HeapLock(gray_handle);
+	{
+		u8 *gray_buffer = HeapDeref(gray_handle);
+		GrayDBufInit(gray_buffer);
+		memset(gray_buffer, 0, GRAYDBUFFER_SIZE);
+	}
+	// TODO: Does ClrScr clear grayscale as well?
+	GrayDBufSetActiveAMSPlane(DARK_PLANE);
+	ClrScr();
+	GrayDBufSetActiveAMSPlane(LIGHT_PLANE);
+	ClrScr();
+
+	// Static tile layer. This includes both planes; first dark, then light
+	HANDLE stb_handle = HeapAllocThrow(STB_BUFFER_SIZE);
+	HeapLock(stb_handle);
+	u8 *stb = HeapDeref(stb_handle);
+	memset(stb, 0, STB_BUFFER_SIZE);
+
+	SPR_SpriteBank tile_bank = SPR_getTileBank();
+
+	STB_drawAllTiles(stb, tile_bank, g_map.scroll.x >> 3, g_map.scroll.y >> 3);
+	// STB_drawTile(stb, MAP_getTile(0, 0), tile_bank, 0);
+
+	// Run main loop
+	while (1) {
+		GrayDBufSetHiddenAMSPlane(LIGHT_PLANE);
+		ClrScr();
+		GrayDBufSetHiddenAMSPlane(DARK_PLANE);
+		ClrScr();
+		/* void draw_tiles(bool fg)
+		{
+			v2_tile_t top_left_tile = {
+				g_map.scroll.x >> 3,
+				g_map.scroll.y >> 3
+			};
+
+			for (s8 x = 0; x < SCROLL_SCREEN_TILES_X; x++)
+			for (s8 y = 0; y < SCROLL_SCREEN_TILES_Y; y++) {
+				const struct tile *tile = MAP_getTile(x + top_left_tile.x, y + top_left_tile.y);
+
+				// Draw as little as possible to the screen; this will perform faster
+				if (tile->front == TILE_AIR && tile->back == TILE_AIR)
+					continue;
+
+				s16 screen_x = (x * 8) - (g_map.scroll.x & ((1 << 3) - 1));
+				s16 screen_y = (y * 8) - (g_map.scroll.y & ((1 << 3) - 1)) + 4;
+
+				s16 offset = y * 8 * 30 + x;
+				u8 *dark = GrayDBufGetHiddenPlane(DARK_PLANE) + offset;
+				u8 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE) + offset;
+
+				if (tile->back != TILE_AIR && fg == tile->is_back_fg) {
+					for (size_t i = 0; i < 8; i++) {
+						*(dark + i * 30) |= SPRITES[tile->back][SPR_MASK][i];
+						*(light + i * 30) |= SPRITES[tile->back][SPR_MASK][i];
+						*(dark + i * 30) |= SPRITES[tile->back][SPR_DARK][i];
+						*(light + i * 30) |= SPRITES[tile->back][SPR_LIGHT][i];
+					}
+					// ClipSprite8(screen_x, screen_y, 8, SPRITES[tile->back][SPR_DARK],  GrayDBufGetHiddenPlane(DARK_PLANE),  SPRT_RPLC);
+					// ClipSprite8(screen_x, screen_y, 8, SPRITES[tile->back][SPR_LIGHT], GrayDBufGetHiddenPlane(LIGHT_PLANE), SPRT_RPLC);
+				}
+
+				if (tile->front != TILE_AIR && fg == tile->is_front_fg) {
+					for (size_t i = 0; i < 8; i++) {
+						*(dark + i * 30) |= SPRITES[tile->front][SPR_MASK][i];
+						*(light + i * 30) |= SPRITES[tile->front][SPR_MASK][i];
+						*(dark + i * 30) |= SPRITES[tile->front][SPR_DARK][i];
+						*(light + i * 30) |= SPRITES[tile->front][SPR_LIGHT][i];
+					}
+					// ClipSprite8(screen_x, screen_y, 8, SPRITES[tile->front][SPR_MASK],  GrayDBufGetHiddenPlane(DARK_PLANE),  SPRT_AND);
+					// ClipSprite8(screen_x, screen_y, 8, SPRITES[tile->front][SPR_MASK],  GrayDBufGetHiddenPlane(LIGHT_PLANE), SPRT_AND);
+					// ClipSprite8(screen_x, screen_y, 8, SPRITES[tile->front][SPR_DARK],  GrayDBufGetHiddenPlane(DARK_PLANE),  SPRT_OR);
+					// ClipSprite8(screen_x, screen_y, 8, SPRITES[tile->front][SPR_LIGHT], GrayDBufGetHiddenPlane(LIGHT_PLANE), SPRT_OR);
+				}
+			}
+
+			s16 x = (g_map.scroll.x & ((1 << 3) - 1));
+			s16 mask = (1 << x) - 1;
+			u8 *dark = GrayDBufGetHiddenPlane(DARK_PLANE);
+			u8 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE);
+
+			for (size_t yi = 0; yi < 128; yi++) {
+				for (size_t xi = 0; xi < 20; xi--) {
+					s16 shift = yi * 30 + xi;
+
+					u8 *pos = dark + shift;
+					u8 copy = (*pos & mask);
+					*pos <<= x;
+					if (xi != 0)
+						*(pos - 1) |= (copy >> (8 - x));
+
+					pos = light + shift;
+					copy = (*pos & mask);
+					*pos <<= x;
+					if (xi != 0)
+						*(pos - 1) |= (copy >> (8 - x));
+				}
+			}
+		} */
+
+		// draw_tiles(false);
+		// draw_tiles(true);
+
+		if (_keytest(RR_ESC)) {
+			break;
+		}
+		s16 speed = 1;
+		if (_keytest(RR_DIAMOND)) {
+			speed = 8;
+		}
+		if (_keytest(RR_RIGHT)) {
+			g_map.scroll.x += speed;
+			if ((g_map.scroll.x & ((1 << 3) - 1)) == 0) {
+				STB_shift(stb, STB_Dir_LEFT, 1);
+				STB_drawTileColumn(stb, tile_bank, (g_map.scroll.x >> 3) + SCREEN_TILES_X, g_map.scroll.y >> 3, STB_PLANE_WIDTH - 1);
+			}
+		}
+		if (_keytest(RR_LEFT)) {
+			g_map.scroll.x -= speed;
+			if ((g_map.scroll.x & ((1 << 3) - 1)) == 7) {
+				STB_shift(stb, STB_Dir_RIGHT, 1);
+				STB_drawTileColumn(stb, tile_bank, g_map.scroll.x >> 3, g_map.scroll.y >> 3, 0);
+			}
+		}
+		if (_keytest(RR_DOWN)) {
+			g_map.scroll.y += speed;
+			if ((g_map.scroll.y & ((1 << 3) - 1)) == 0) {
+				STB_shift(stb, STB_Dir_UP, 1);
+				STB_drawTileRow(stb, tile_bank, g_map.scroll.x >> 3, (g_map.scroll.y >> 3) + SCREEN_TILES_Y, STB_PLANE_SIZE - STB_PLANE_ROW);
+			}
+		}
+		if (_keytest(RR_UP)) {
+			g_map.scroll.y -= speed;
+			if ((g_map.scroll.y & ((1 << 3) - 1)) == 7) {
+				STB_shift(stb, STB_Dir_DOWN, 1);
+				STB_drawTileRow(stb, tile_bank, g_map.scroll.x >> 3, g_map.scroll.y >> 3, 0);
+			}
+		}
+
+		$d7 = 0x1;
+		SCR_drawSTB(stb, g_map.scroll.x & ((1 << 3) - 1), g_map.scroll.x & ((1 << 3) - 1));
+		$d7 = 0x2;
+
+		GrayDBufToggleSync();
+	}
+
+	HeapFree(gray_handle);
+	HeapFree(stb_handle);
+	GrayOff();
+}
