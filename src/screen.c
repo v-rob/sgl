@@ -40,6 +40,11 @@ void SCR_init(struct SCR_Screen *screen)
 		COM_throwErr(COM_Error_MEMORY, "grayscale buffer");
 	GrayDBufInit(screen->GrayBuffer);
 
+#ifdef DEBUG
+	// This makes sure `SCR_dispDebug`'s "Hey presto" text doesn't overlap the `printf` text.
+	printf("\n");
+#endif
+
 	SCR_clearAll();
 
 	screen->TileBuffer = HeapAllocPtr(SCR_TB_BUFFER_SIZE);
@@ -124,34 +129,87 @@ void SCR_drawTile(struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
 	ClipSprite8(x, y, SCR_SPRITE_SIZE, bank[tile->Front][SCR_SPRITE_LIGHT], light, SPRT_OR);
 }
 
-// TODO: This is going to need some heavy optimizing, and cleaner, more understandable code
-// (maybe some variable-esque macros if we can't use real variables?).
+// TODO: This is going to need some heavy optimizing, and cleaner, more understandable code.
+// I am 99.99% certain that this is the main bottleneck so far. Using `u16 *` and `u32 *`
+// should certainly be tested in addition to the current byte-wise `u8 *` method.
 void SCR_drawTileBuffer(struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pixel shift_up)
 {
 	u8 *dark  = GrayDBufGetHiddenPlane(DARK_PLANE);
 	u8 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE);
 
-	u8 *it = screen->TileBuffer + shift_up * SCR_TB_PLANE_WIDTH;
+	s16 v_shift = shift_up * SCR_TB_PLANE_WIDTH;
+
+	// Tile buffer counter and end position
+	u8 *it = screen->TileBuffer + v_shift;
+	u8 *it_end = screen->TileBuffer +
+			SCR_TB_PLANE_SIZE - (SCR_SPRITE_SIZE - v_shift) - SCR_TB_SPRITES_WIDTH;
+
+	// Screen buffer counter
 	u16 is = SCR_SCREEN_BUFFER_WIDTH * SCR_HUD_HEIGHT;
-	for (; is < SCR_SCREEN_BUFFER_SIZE; it += SCR_TB_PLANE_WIDTH, is += 30) {
-		for (u16 i = 0; i < SCR_TB_PLANE_WIDTH; i++) {
+
+	for (; it < it_end; it += SCR_TB_PLANE_WIDTH, is += SCR_SCREEN_BUFFER_WIDTH) {
+		for (u16 i = 0; i < SCR_TB_PLANE_WIDTH - 1; i++) {
 			// Leave as-is. GCC optimizes it better all together like this instead of in
 			// separate variables.
 			*(dark + is + i) = (*(it + i) << shift_left) |
 					(*(it + i + 1) >> (SCR_SPRITE_SIZE - shift_left));
 			*(light + is + i) = (*(it + i + SCR_TB_PLANE_SIZE) << shift_left) |
 					(*(it + i + SCR_TB_PLANE_SIZE + 1) >> (SCR_SPRITE_SIZE - shift_left));
-			// Delete?
-			/* u16 scr_offset = is + i;
-			u8 *stb_dark = it + i;
-			u8 *stb_light = stb_dark + SCR_TB_PLANE_SIZE;
-			u16 backshift = SCR_SPRITE_SIZE - shift_left;
-			*(dark + scr_offset) = (*stb_dark << shift_left) | (*(stb_dark + 1) >> backshift);
-			*(light + scr_offset) = (*stb_light << shift_left) | (*(stb_light + 1) >> backshift); */
 		}
-		// memcpy(dark + is, it, SCR_TB_PLANE_WIDTH);
-		// memcpy(light + is, it + SCR_TB_PLANE_SIZE, SCR_TB_PLANE_WIDTH);
 	}
+}
+
+void SCR_scroll(struct SCR_Screen *screen, struct MAP_Map *map, MAP_Scroll shift_x,
+		MAP_Scroll shift_y)
+{
+	MAP_Scroll old_scroll_x = map->ScrollX;
+	map->ScrollX += shift_x;
+
+	if (shift_x > 0 &&
+			FXD_floor(MAP_Scroll, map->ScrollX) - FXD_floor(MAP_Scroll, old_scroll_x) > 0) {
+		SCR_TB_shift(screen, SCR_TB_Dir_LEFT, 1);
+		SCR_TB_drawTileColumn(screen, map,
+				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollX) + SCR_SPRITES_X,
+				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollY),
+				SCR_TB_PLANE_WIDTH - 1);
+	} else if (shift_x < 0 &&
+			FXD_floor(MAP_Scroll, map->ScrollX) - FXD_floor(MAP_Scroll, old_scroll_x) < 0) {
+		SCR_TB_shift(screen, SCR_TB_Dir_RIGHT, 1);
+		SCR_TB_drawTileColumn(screen, map,
+				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollX),
+				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollY),
+				0);
+	}
+
+	// This must be added _after_ shifting the X or else it messes up the shifting code.
+	MAP_Scroll old_scroll_y = map->ScrollY;
+	map->ScrollY += shift_y;
+
+	if (shift_y > 0 &&
+			FXD_floor(MAP_Scroll, map->ScrollY) - FXD_floor(MAP_Scroll, old_scroll_y) > 0) {
+		SCR_TB_shift(screen, SCR_TB_Dir_UP, 1);
+		SCR_TB_drawTileRow(screen, map,
+				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollX),
+				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollY) + SCR_SPRITES_Y,
+				SCR_TB_PLANE_SIZE - SCR_TB_SPRITES_WIDTH);
+	} else if (shift_y < 0 &&
+			FXD_floor(MAP_Scroll, map->ScrollY) - FXD_floor(MAP_Scroll, old_scroll_y) < 0) {
+		SCR_TB_shift(screen, SCR_TB_Dir_DOWN, 1);
+		SCR_TB_drawTileRow(screen, map,
+				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollX),
+				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollY),
+				0);
+	}
+}
+
+void SCR_scrollAbsolute(struct SCR_Screen *screen, struct MAP_Map *map, MAP_Scroll scroll_x,
+		MAP_Scroll scroll_y)
+{
+	map->ScrollX = scroll_x;
+	map->ScrollY = scroll_y;
+
+	SCR_TB_drawAllTiles(screen, map,
+			FXD_convert(MAP_Scroll, MAP_Pos, scroll_x), FXD_convert(MAP_Scroll, MAP_Pos, scroll_x));
 }
 
 #ifdef DEBUG
@@ -159,8 +217,6 @@ void SCR_dispDebug(const char *format, ...)
 {
 	SCR_clear();
 	SCR_swap();
-
-	printf("\n");
 
 	va_list arglist;
 	va_start(arglist, format);

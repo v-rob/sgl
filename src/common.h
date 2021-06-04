@@ -89,15 +89,16 @@ register s32 Debug asm("d7");
 	operators. To multiply, divide, or modulus by an integer, use normal multiplication and
 	division operators. However, to multiply or divide two fixed numbers, the dedicated
 	functions `FXD_mult` and `FXD_div` must be used.
+
+	Finally, inside each of these fixed point functions, it's easy to remember how to move
+	the decimal point: << and >> move the decimal point in the direction they face. In non-FXD
+	namespace code, however, `FXD_convert` should always be used.
 */
 
 // Integer point definitions
 #define  s8_POINT 0
 #define s16_POINT 0
 #define s32_POINT 0
-
-// Get the number of fractional bits in the fixed point type.
-#define FXD_point(type) (type##_POINT)
 
 // Get the denominator of the fixed point type
 #define FXD_denom(type) (1 << type##_POINT)
@@ -112,12 +113,12 @@ register s32 Debug asm("d7");
 #define FXD_ceil(type, num) ((((num) - 1) + FXD_denom(type)) & ~FXD_denomMask(type))
 
 // TODO: Test mult and div
-// Muliply two fixed point numbers.
+// Muliply two fixed point numbers. The most significant `<type>_POINT` bytes will be truncated.
 #define FXD_mult(type, num1, num2) (((num1) * (num2)) >> type##_POINT)
-// Divide one fixed point number by another. `prec` of the most significant bits will be
-// truncated during the division to allow for more fractional precision. Be careful not to
-// set it high enough to result in data loss.
-#define FXD_div(type, num1, num2, prec) ((((num1) << (prec)) / ((num2) << (prec))) >> (prec))
+// Divide one fixed point number by another. The most significant `<type>_POINT` bytes will be
+// truncated.
+#define FXD_div(type, num1, num2) \
+		((((num1) << type##_POINT) / ((num2) << type##_POINT)) >> type##_POINT)
 
 // Create a fixed point number "literal" from a integer literal. Only use with number literals;
 // for variables, always use `FXD_convert` This macro is not necessary if `<type>_POINT` is 0
@@ -129,10 +130,11 @@ register s32 Debug asm("d7");
 		(((integer) << type##_POINT) + (FXD_denom(type) * (numer) / (denom)))
 
 // Convert one fixed point type to another. It is not necessary to use this macro when the two
-// types have the same `<type>_POINT` value.
+// types have the same `<type>_POINT` value. When shifting to a smaller point, the value will
+// be floored. When shifting to a larger point, the new bits will be zeros.
 #define FXD_convert(from_type, to_type, num)				\
 ({															\
-	__typeof__(+(num)) _num = (num);						\
+	typeof(+(num)) _num = (num);							\
 	to_type##_POINT > from_type##_POINT ?					\
 			_num << (to_type##_POINT - from_type##_POINT) :	\
 			_num >> (from_type##_POINT - to_type##_POINT);	\
@@ -151,16 +153,16 @@ register s32 Debug asm("d7");
 // Get the larger of two integers
 #define COM_max(a, b)			\
 ({								\
-	__typeof__(+(a)) _a = (a);	\
-	__typeof__(+(b)) _b = (b);	\
+	typeof(+(a)) _a = (a);		\
+	typeof(+(b)) _b = (b);		\
 	_a > _b ? _a : _b;			\
 })
 
 // Get the smaller of two integers
 #define COM_min(a, b)			\
 ({								\
-	__typeof__(+(a)) _a = (a);	\
-	__typeof__(+(b)) _b = (b);	\
+	typeof(+(a)) _a = (a);		\
+	typeof(+(b)) _b = (b);		\
 	_a < _b ? _a : _b;			\
 })
 
@@ -168,7 +170,7 @@ register s32 Debug asm("d7");
 // function does.
 #define COM_abs(n)				\
 ({								\
-	__typeof__(+(n)) _n = n;	\
+	typeof(+(n)) _n = n;		\
 	_n < 0 ? -_n : _n;			\
 })
 
@@ -194,7 +196,7 @@ enum COM_Error
 };
 
 // A global variable which can be set to a string further describing the error in COM_Error.
-// It is preferred to use COM_throwErr, however.
+// It is preferred to use COM_throwErr in general, which will set this variable.
 extern char *ErrorInfo;
 
 // Throws the COM_ErrorCode `error`, providing extra information in `info` (NULL for no extra info)

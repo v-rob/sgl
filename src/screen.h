@@ -120,10 +120,18 @@ void SCR_drawTile(struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
 		const struct MAP_TileDef *tile);
 
 // Draws the tile buffer to the screen, shifting it a specified number of pixels to the top left
-// corner of the screen, where the shift must be in the range [0, 7].
-// Drawing the tile buffer replaces the screen except for the HUD area, so clearing the screen
-// is unnecessary.
+// corner of the screen, where the shift must be in the range [0, 7]. Drawing the tile buffer
+// replaces the screen contents except for the HUD area, so clearing the screen is unnecessary.
 void SCR_drawTileBuffer(struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pixel shift_up);
+
+// Scroll the map a certain amount, also shifting and updating the tile buffer appropriately
+// as well.
+void SCR_scroll(struct SCR_Screen *screen, struct MAP_Map *map, MAP_Scroll shift_x,
+		MAP_Scroll shift_y);
+
+// Scroll the map to an absolute position, also updating the tile buffer appropriately as well.
+void SCR_scrollAbsolute(struct SCR_Screen *screen, struct MAP_Map *map, MAP_Scroll scroll_x,
+		MAP_Scroll scroll_y);
 
 #ifdef DEBUG
 // Clears the screen, displays a debugging message with printf formatting, and waits for a
