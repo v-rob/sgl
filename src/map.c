@@ -65,7 +65,7 @@ const struct MAP_TileDef PlainSolid = {.Collision = MAP_Collision_SOLID};
 const struct MAP_TileDef PlainAir   = {.Collision = MAP_Collision_AIR};
 const struct MAP_TileDef DeathAir   = {.Collision = MAP_Collision_AIR, .Property = MAP_Property_DEATH};
 
-const struct MAP_TileDef *MAP_getTile(struct MAP_Map *map, MAP_Pos pos_x, MAP_Pos pos_y)
+const struct MAP_TileDef *MAP_getTile(const struct MAP_Map *map, MAP_Pos pos_x, MAP_Pos pos_y)
 {
 	// Handle objects/anything else going out of the level boundaries
 	if (pos_x < 0 || pos_x >= map->SizeX) {

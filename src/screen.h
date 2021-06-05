@@ -29,9 +29,31 @@
 // The sprite size. This is preferred to a raw eight for semantic's sake.
 #define SCR_SPRITE_SIZE 8
 
-// The size of the 89's screen. TODO: No provisions have been made for the 92 or V200 as of yet.
-#define SCR_SIZE_X 160
-#define SCR_SIZE_Y 100
+// The size of the screen. For the 92 and V200, the rest of the screen is unused for gameplay.
+#define SCR_WIDTH  160
+#define SCR_HEIGHT 100
+// Defines the width of the visible screen in bytes.
+#define SCR_WIDTH_BYTES (SCR_WIDTH / 8)
+
+// Width of the screen buffer in bytes
+#define SCR_SCREEN_BUFFER_WIDTH 30
+// Height of the screen buffer in pixels
+#define SCR_SCREEN_BUFFER_HEIGHT 128
+// Size of the screen buffer in bytes
+#define SCR_SCREEN_BUFFER_SIZE (SCR_SCREEN_BUFFER_WIDTH * SCR_SCREEN_BUFFER_HEIGHT)
+
+// For large (92/V200) screens, these are the X and Y offsets to the top left corner of the
+// portion of the screen that is used.
+#define SCR_LARGE_OFFSET_X 40
+#define SCR_LARGE_OFFSET_Y 14
+
+// Same as `SCR_LARGE_OFFSET_X/Y`, but is a byte offset to the top left corner.
+#define SCR_LARGE_OFFSET_BYTES \
+		(SCR_SCREEN_BUFFER_WIDTH * SCR_LARGE_OFFSET_Y + SCR_LARGE_OFFSET_X / 8 + 1)
+// `SCR_LARGE_OFFSET_BYTES` offset by `SCR_HEIGHT` rows of `SCR_SCREEN_BUFFER_WIDTH`, generally
+// used as a loop terminator.
+#define SCR_LARGE_OFFSET_BYTES_END \
+		(SCR_LARGE_OFFSET_BYTES + SCR_SCREEN_BUFFER_WIDTH * SCR_HEIGHT)
 
 // Since the 89's screen height is not a multiple of eight, there are four extra pixels left
 // over. This space is occupied by the HUD and the specially designed four pixel font.
@@ -39,7 +61,7 @@
 
 // This is the height of the part of the screen that holds the game, i.e. everything except
 // the HUD.
-#define SCR_GAME_HEIGHT (SCR_SIZE_Y - SCR_HUD_HEIGHT)
+#define SCR_GAME_HEIGHT (SCR_HEIGHT - SCR_HUD_HEIGHT)
 
 // Amount of sprites that can fit in the screen if all sprites are on a multiple of eight
 // boundary.
@@ -50,13 +72,6 @@
 // eight boundary.
 #define SCR_SCROLL_SPRITES_X (SCR_SPRITES_X + 1)
 #define SCR_SCROLL_SPRITES_Y (SCR_SPRITES_Y + 1)
-
-// Width of the screen buffer in bytes
-#define SCR_SCREEN_BUFFER_WIDTH 30
-// Height of the screen buffer in pixels
-#define SCR_SCREEN_BUFFER_HEIGHT 128
-// Size of the screen buffer in bytes
-#define SCR_SCREEN_BUFFER_SIZE (SCR_SCREEN_BUFFER_WIDTH * SCR_SCREEN_BUFFER_HEIGHT)
 
 // In a sprite buffer, each sprite is stored in the order dark -> light -> mask
 #define SCR_SPRITE_DARK 0
@@ -78,11 +93,11 @@ struct SCR_Screen
 	// Pointers to the start of banks of sprites
 	// Static tile sprite bank
 	FILES TileBankFile;
-	SCR_SpriteBuffer *TileBank;
+	const SCR_SpriteBuffer *TileBank;
 
 	// Object sprite bank
 	FILES ObjBankFile;
-	SCR_SpriteBuffer *ObjBank;
+	const SCR_SpriteBuffer *ObjBank;
 };
 
 // Defines the dimensions of something in pixels
@@ -94,38 +109,42 @@ void SCR_init(struct SCR_Screen *screen);
 // Deinitializes the screen.
 void SCR_deInit(struct SCR_Screen *screen);
 
-// A "color" that can be provided to some drawing routines.
-enum SCR_Color
+// Returns whether or not this calculator has a large screen. This is a function-like macro to
+// show that it is not a real constant and cannot be used as such.
+#define SCR_isLargeScreen() (CALCULATOR != 0)
+
+// A shade that can be provided to some drawing routines.
+enum SCR_Shade
 {
-	SCR_Color_WHITE,
-	SCR_Color_LIGHT,
-	SCR_Color_DARK,
-	SCR_Color_BLACK
+	SCR_Shade_WHITE,
+	SCR_Shade_LIGHT,
+	SCR_Shade_DARK,
+	SCR_Shade_BLACK
 };
 
-// Clears the screen. Generally unnecessary if using SCR_drawTileBuffer.
+// Clears the playing portion of the screen. Unnecessary if using SCR_drawTileBuffer.
 void SCR_clear(void);
 
-// Clears both buffers.
-void SCR_clearAll(void);
+// Clears both buffers of the screen and, for large screens, draws the border and title text.
+void SCR_drawBorder(void);
 
 // Swaps hidden and active grayscale buffers.
 #define SCR_swap() GrayDBufToggleSync()
 
 // Draw a filled rectangle with the specified color.
-void SCR_drawRect(SCR_Pixel x, SCR_Pixel y, SCR_Pixel w, SCR_Pixel h, enum SCR_Color color);
+void SCR_drawRect(SCR_Pixel x, SCR_Pixel y, SCR_Pixel w, SCR_Pixel h, enum SCR_Shade color);
 
 // Draw a tile directly to the screen without using the tile buffer.
-void SCR_drawTile(struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
+void SCR_drawTile(const struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
 		const struct MAP_TileDef *tile);
 
 // Draws the tile buffer to the screen, shifting it a specified number of pixels to the top left
 // corner of the screen, where the shift must be in the range [0, 7]. Drawing the tile buffer
 // replaces the screen contents except for the HUD area, so clearing the screen is unnecessary.
-void SCR_drawTileBuffer(struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pixel shift_up);
+void SCR_drawTileBuffer(const struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pixel shift_up);
 
 // Scroll the map a certain amount, also shifting and updating the tile buffer appropriately
-// as well.
+// as well. The shift must not be greater than eight pixels.
 void SCR_scroll(struct SCR_Screen *screen, struct MAP_Map *map, MAP_Scroll shift_x,
 		MAP_Scroll shift_y);
 

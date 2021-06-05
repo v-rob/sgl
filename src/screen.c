@@ -5,7 +5,7 @@
 #include "screen.h"
 
 // Temporary sprites, will be externalized to a file later.
-SCR_SpriteBuffer TempTileSprites[] = {
+const SCR_SpriteBuffer TempTileSprites[] = {
 	{
 		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
@@ -28,8 +28,14 @@ SCR_SpriteBuffer TempTileSprites[] = {
 	},
 };
 
+// "SUPER GRAYLAND" text for large screens. Disgusting for now, but will be externalized.
+const u16 TempTitle[97 * 2] = {
+	0b1110000000000111, 0b1100000000000011, 0b1100111111110011, 0b1100111111110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1110000000000011, 0b1100000000000011, 0b1100111111111111, 0b1100111111111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000000000011, 0b1100000000000011, 0b1100111001111111, 0b1100111001111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1111111111110011, 0b1111111111110011, 0b1111111111110011, 0b1111111111110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000001111111, 0b1100000001111111, 0b1111111000000011, 0b1111111000000011, 0b1100000001111111, 0b1100000001111111, 0b1111111111111111, 0b1100000000000011, 0b1100000000000011, 0b1100111001111111, 0b1100111001111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000001110011, 0b1100000001000011, 0b1100111000001111, 0b1100111000111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100111000000011, 0b1100111000000011, 0b1100111001110011, 0b1100111111110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1100000001110011, 0b1100000001000011, 0b1100111000001111, 0b1100111000111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100111111110011, 0b1100111001110011, 0b1100111001110011, 0b1100111001110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000001111111, 0b1100000001111111, 0b1100111001111111, 0b1100111001111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111110011, 0b1111111111110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100111000000011, 0b1100111000000011, 0b1100111001110011, 0b1100111001110011, 0b1100000001110011, 0b1100000001110011
+};
+
 void SCR_init(struct SCR_Screen *screen)
 {
+	// Most things in SGL that use a system font use the small font.
 	FontSetSys(F_4x6);
 
 	if (!GrayOn())
@@ -40,7 +46,7 @@ void SCR_init(struct SCR_Screen *screen)
 		COM_throwErr(COM_Error_MEMORY, "grayscale buffer");
 	GrayDBufInit(screen->GrayBuffer);
 
-	SCR_clearAll();
+	SCR_drawBorder();
 
 	screen->TileBuffer = HeapAllocPtr(SCR_TB_BUFFER_SIZE);
 	if (screen->TileBuffer == NULL)
@@ -75,43 +81,93 @@ void SCR_deInit(struct SCR_Screen *screen)
 
 void SCR_clear(void)
 {
-	GrayDBufSetHiddenAMSPlane(LIGHT_PLANE);
-	ClrScr();
-	GrayDBufSetHiddenAMSPlane(DARK_PLANE);
-	ClrScr();
+	if (SCR_isLargeScreen()) {
+		u8 *dark  = GrayDBufGetHiddenPlane(DARK_PLANE);
+		u8 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE);
+
+		for (u16 i = SCR_LARGE_OFFSET_BYTES; i < SCR_LARGE_OFFSET_BYTES_END;
+				i += SCR_SCREEN_BUFFER_WIDTH) {
+			memset(dark  + i, 0, SCR_WIDTH_BYTES);
+			memset(light + i, 0, SCR_WIDTH_BYTES);
+		}
+	} else {
+		GrayDBufSetHiddenAMSPlane(LIGHT_PLANE);
+		ClrScr();
+		GrayDBufSetHiddenAMSPlane(DARK_PLANE);
+		ClrScr();
+	}
 }
 
-void SCR_clearAll(void)
-{
-	SCR_clear();
-	SCR_swap();
-	SCR_clear();
-}
-
-void SCR_drawRect(SCR_Pixel x, SCR_Pixel y, SCR_Pixel w, SCR_Pixel h, enum SCR_Color color)
-{
-	SCR_RECT rect = {{x, y, x + w, y + h}};
-
-	GrayDBufSetHiddenAMSPlane(DARK_PLANE);
-	if (color == SCR_Color_DARK || color == SCR_Color_BLACK)
-		ScrRectFill(&rect, &rect, A_NORMAL);
-	else
-		ScrRectFill(&rect, &rect, A_REVERSE);
-
-	GrayDBufSetHiddenAMSPlane(LIGHT_PLANE);
-	if (color == SCR_Color_LIGHT || color == SCR_Color_BLACK)
-		ScrRectFill(&rect, &rect, A_NORMAL);
-	else
-		ScrRectFill(&rect, &rect, A_REVERSE);
-}
-
-void SCR_drawTile(struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
-		const struct MAP_TileDef *tile)
+void redrawBorderAndTitle(void)
 {
 	u8 *dark  = GrayDBufGetHiddenPlane(DARK_PLANE);
 	u8 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE);
 
-	SCR_SpriteBuffer *bank = screen->TileBank;
+	memset(dark,  0xFF, SCR_LARGE_OFFSET_BYTES);
+	memset(light, 0xFF, SCR_LARGE_OFFSET_BYTES);
+
+	for (u16 i = SCR_LARGE_OFFSET_BYTES; i < SCR_LARGE_OFFSET_BYTES_END;
+				i += SCR_SCREEN_BUFFER_WIDTH) {
+		memset(dark  + i + SCR_WIDTH_BYTES, 0xFF, SCR_SCREEN_BUFFER_WIDTH - SCR_WIDTH_BYTES);
+		memset(light + i + SCR_WIDTH_BYTES, 0xFF, SCR_SCREEN_BUFFER_WIDTH - SCR_WIDTH_BYTES);
+	}
+
+	memset(dark  + SCR_LARGE_OFFSET_BYTES_END, 0xFF,
+			SCR_SCREEN_BUFFER_SIZE - SCR_LARGE_OFFSET_BYTES_END);
+	memset(light + SCR_LARGE_OFFSET_BYTES_END, 0xFF,
+			SCR_SCREEN_BUFFER_SIZE - SCR_LARGE_OFFSET_BYTES_END);
+
+	Sprite16(16, 16, 97, TempTitle, dark,  SPRT_RPLC);
+	Sprite16(16, 16, 97, TempTitle, light, SPRT_RPLC);
+}
+
+void SCR_drawBorder(void)
+{
+	bool is_large = SCR_isLargeScreen();
+
+	if (is_large)
+		redrawBorderAndTitle();
+	SCR_clear();
+
+	SCR_swap();
+
+	if (is_large)
+		redrawBorderAndTitle();
+	SCR_clear();
+}
+
+void SCR_drawRect(SCR_Pixel x, SCR_Pixel y, SCR_Pixel w, SCR_Pixel h, enum SCR_Shade color)
+{
+	SCR_RECT rect = {{
+		x + SCR_LARGE_OFFSET_X,
+		y + SCR_LARGE_OFFSET_Y,
+		x + SCR_LARGE_OFFSET_X + w,
+		y + SCR_LARGE_OFFSET_Y + h
+	}};
+
+	GrayDBufSetHiddenAMSPlane(DARK_PLANE);
+	if (color == SCR_Shade_DARK || color == SCR_Shade_BLACK)
+		ScrRectFill(&rect, &rect, A_NORMAL);
+	else
+		ScrRectFill(&rect, &rect, A_REVERSE);
+
+	GrayDBufSetHiddenAMSPlane(LIGHT_PLANE);
+	if (color == SCR_Shade_LIGHT || color == SCR_Shade_BLACK)
+		ScrRectFill(&rect, &rect, A_NORMAL);
+	else
+		ScrRectFill(&rect, &rect, A_REVERSE);
+}
+
+void SCR_drawTile(const struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
+		const struct MAP_TileDef *tile)
+{
+	x += SCR_LARGE_OFFSET_X;
+	y += SCR_LARGE_OFFSET_Y;
+
+	u8 *dark  = GrayDBufGetHiddenPlane(DARK_PLANE);
+	u8 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE);
+
+	const SCR_SpriteBuffer *bank = screen->TileBank;
 
 	ClipSprite8(x, y, SCR_SPRITE_SIZE, bank[tile->Back][SCR_SPRITE_MASK], dark, SPRT_AND);
 	ClipSprite8(x, y, SCR_SPRITE_SIZE, bank[tile->Back][SCR_SPRITE_DARK], dark, SPRT_OR);
@@ -124,11 +180,11 @@ void SCR_drawTile(struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
 	ClipSprite8(x, y, SCR_SPRITE_SIZE, bank[tile->Front][SCR_SPRITE_LIGHT], light, SPRT_OR);
 }
 
-void SCR_drawTileBuffer(struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pixel shift_up)
+void SCR_drawTileBuffer(const struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pixel shift_up)
 {
 	// There are a lot of divisions by two because this function uses u16s instead of u8s, which
 	// are _vaaastly_ faster, tripling the framerate. Potentially, u32s could be faster, but
-	// the screen buffer rows are 32 bytes, which is not divisible by four, so there's no way
+	// the screen buffer rows are 30 bytes, which is not divisible by four, so there's no way
 	// to use them.
 
 	u16 *dark  = GrayDBufGetHiddenPlane(DARK_PLANE);
@@ -143,6 +199,9 @@ void SCR_drawTileBuffer(struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pix
 
 	// Screen buffer counter
 	u16 is = SCR_SCREEN_BUFFER_WIDTH / 2 * SCR_HUD_HEIGHT;
+
+	if (SCR_isLargeScreen())
+		is += SCR_LARGE_OFFSET_BYTES / 2;
 
 	for (; it < it_end; it += SCR_TB_FULL_PLANE_WIDTH / 2, is += SCR_SCREEN_BUFFER_WIDTH / 2) {
 		for (u16 i = 0; i < (SCR_TB_PLANE_WIDTH - 1) / 2; i++) {
@@ -162,15 +221,15 @@ void SCR_scroll(struct SCR_Screen *screen, struct MAP_Map *map, MAP_Scroll shift
 	MAP_Scroll old_scroll_x = map->ScrollX;
 	map->ScrollX += shift_x;
 
-	if (shift_x > 0 &&
-			FXD_floor(MAP_Scroll, map->ScrollX) - FXD_floor(MAP_Scroll, old_scroll_x) > 0) {
+	// If we scrolled over a tile boundary after the addition, the tile buffer needs to be
+	// shifted and the empty column filled with tiles.
+	if (FXD_floor(MAP_Scroll, map->ScrollX) - FXD_floor(MAP_Scroll, old_scroll_x) > 0) {
 		SCR_TB_shift(screen, SCR_TB_Dir_LEFT, 1);
 		SCR_TB_drawTileColumn(screen, map,
 				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollX) + SCR_SPRITES_X,
 				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollY),
 				SCR_TB_PLANE_WIDTH - 1);
-	} else if (shift_x < 0 &&
-			FXD_floor(MAP_Scroll, map->ScrollX) - FXD_floor(MAP_Scroll, old_scroll_x) < 0) {
+	} else if (FXD_floor(MAP_Scroll, map->ScrollX) - FXD_floor(MAP_Scroll, old_scroll_x) < 0) {
 		SCR_TB_shift(screen, SCR_TB_Dir_RIGHT, 1);
 		SCR_TB_drawTileColumn(screen, map,
 				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollX),
@@ -182,15 +241,13 @@ void SCR_scroll(struct SCR_Screen *screen, struct MAP_Map *map, MAP_Scroll shift
 	MAP_Scroll old_scroll_y = map->ScrollY;
 	map->ScrollY += shift_y;
 
-	if (shift_y > 0 &&
-			FXD_floor(MAP_Scroll, map->ScrollY) - FXD_floor(MAP_Scroll, old_scroll_y) > 0) {
+	if (FXD_floor(MAP_Scroll, map->ScrollY) - FXD_floor(MAP_Scroll, old_scroll_y) > 0) {
 		SCR_TB_shift(screen, SCR_TB_Dir_UP, 1);
 		SCR_TB_drawTileRow(screen, map,
 				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollX),
 				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollY) + SCR_SPRITES_Y,
 				SCR_TB_PLANE_SIZE - SCR_TB_SPRITES_WIDTH);
-	} else if (shift_y < 0 &&
-			FXD_floor(MAP_Scroll, map->ScrollY) - FXD_floor(MAP_Scroll, old_scroll_y) < 0) {
+	} else if (FXD_floor(MAP_Scroll, map->ScrollY) - FXD_floor(MAP_Scroll, old_scroll_y) < 0) {
 		SCR_TB_shift(screen, SCR_TB_Dir_DOWN, 1);
 		SCR_TB_drawTileRow(screen, map,
 				FXD_convert(MAP_Scroll, MAP_Pos, map->ScrollX),
@@ -212,8 +269,7 @@ void SCR_scrollAbsolute(struct SCR_Screen *screen, struct MAP_Map *map, MAP_Scro
 #ifdef DEBUG
 void SCR_dispDebug(const char *format, ...)
 {
-	SCR_clear();
-	SCR_swap();
+	ClrScr();
 
 	va_list arglist;
 	va_start(arglist, format);
@@ -225,8 +281,9 @@ void SCR_dispDebug(const char *format, ...)
 
 	DrawStr(1, 1, "Hey presto! A debugging message for you:", A_NORMAL);
 
-	GKeyFlush();
-	ngetchx();
+	COM_waitForKey();
+
+	SCR_drawBorder();
 }
 #endif
 
@@ -249,8 +306,7 @@ void SCR_dispError(const char *error, const char *info)
 	DrawStr(1, place + 4, "(It's probably Gravil's fault.)", A_NORMAL);
 	DrawStr(1, place + 11, "Press the any key to exit.", A_NORMAL);
 
-	GKeyFlush();
-	ngetchx();
+	COM_waitForKey();
 }
 
 void SCR_TB_shift(struct SCR_Screen *screen, enum SCR_TB_Dir dir, u16 amount)
@@ -287,14 +343,10 @@ void SCR_TB_drawTile(struct SCR_Screen *screen, const struct MAP_TileDef *tile, 
 	u8 *dark = screen->TileBuffer + offset;
 	u8 *light = dark + SCR_TB_PLANE_SIZE;
 
-	SCR_SpriteBuffer *bank = screen->TileBank;
-
-	// SCR_Sprite back  = bank[tile->back];
-	// SCR_Sprite front = bank[tile->front];
+	const SCR_SpriteBuffer *bank = screen->TileBank;
 
 	// Air is intentionally drawn because tiles shifted out in SCR_TB_shift are not erased, so
 	// air will erase them.
-	// TODO: Coalesce `dark + offset`? Make local variables to sprites to draw?
 	for (u16 row = 0, offset = 0; row < SCR_SPRITE_SIZE;
 			row++, offset += SCR_TB_FULL_PLANE_WIDTH) {
 		*(dark + offset) = bank[tile->Back][SCR_SPRITE_DARK][row];

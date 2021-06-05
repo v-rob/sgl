@@ -176,7 +176,16 @@ register s32 Debug asm("d7");
 
 // Adds a number to a variable unless it overflows the end, in which case it resets to the initial.
 // Subtraction is possible with negative numbers, and end is a minimum in that case, not a maximum.
-#define COM_wrapAdd(var, change, end, initial) ((var) = ((var) == (end) ? (initial) : (var) + (change)));
+#define COM_wrapAdd(var, change, end, initial) \
+		((var) = ((var) == (end) ? (initial) : (var) + (change)));
+
+// Waits for a keypress before returning.
+#define COM_waitForKey()								\
+({														\
+	/* Flush so `_keytest` doesn't trigger `ngetchx` */	\
+	GKeyFlush();										\
+	ngetchx();											\
+})
 
 /* Error handling
 	To throw an error, use COM_throwErr with a COM_Error and an optional extra information

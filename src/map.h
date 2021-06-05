@@ -130,4 +130,4 @@ void MAP_deInit(struct MAP_Map *map);
 	  instance, MAP_getTile(map, 0, map->SizeX * 2) will return an incorrect tile and should
 	  not be done.
 */
-const struct MAP_TileDef *MAP_getTile(struct MAP_Map *map, MAP_Pos pos_x, MAP_Pos pos_y);
+const struct MAP_TileDef *MAP_getTile(const struct MAP_Map *map, MAP_Pos pos_x, MAP_Pos pos_y);
