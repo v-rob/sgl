@@ -40,11 +40,6 @@ void SCR_init(struct SCR_Screen *screen)
 		COM_throwErr(COM_Error_MEMORY, "grayscale buffer");
 	GrayDBufInit(screen->GrayBuffer);
 
-#ifdef DEBUG
-	// This makes sure `SCR_dispDebug`'s "Hey presto" text doesn't overlap the `printf` text.
-	printf("\n");
-#endif
-
 	SCR_clearAll();
 
 	screen->TileBuffer = HeapAllocPtr(SCR_TB_BUFFER_SIZE);
@@ -129,32 +124,34 @@ void SCR_drawTile(struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
 	ClipSprite8(x, y, SCR_SPRITE_SIZE, bank[tile->Front][SCR_SPRITE_LIGHT], light, SPRT_OR);
 }
 
-// TODO: This is going to need some heavy optimizing, and cleaner, more understandable code.
-// I am 99.99% certain that this is the main bottleneck so far. Using `u16 *` and `u32 *`
-// should certainly be tested in addition to the current byte-wise `u8 *` method.
 void SCR_drawTileBuffer(struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pixel shift_up)
 {
-	u8 *dark  = GrayDBufGetHiddenPlane(DARK_PLANE);
-	u8 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE);
+	// There are a lot of divisions by two because this function uses u16s instead of u8s, which
+	// are _vaaastly_ faster, tripling the framerate. Potentially, u32s could be faster, but
+	// the screen buffer rows are 32 bytes, which is not divisible by four, so there's no way
+	// to use them.
 
-	s16 v_shift = shift_up * SCR_TB_PLANE_WIDTH;
+	u16 *dark  = GrayDBufGetHiddenPlane(DARK_PLANE);
+	u16 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE);
+
+	s16 v_shift = shift_up * SCR_TB_FULL_PLANE_WIDTH;
 
 	// Tile buffer counter and end position
-	u8 *it = screen->TileBuffer + v_shift;
-	u8 *it_end = screen->TileBuffer +
-			SCR_TB_PLANE_SIZE - (SCR_SPRITE_SIZE - v_shift) - SCR_TB_SPRITES_WIDTH;
+	u16 *it = (u16 *)screen->TileBuffer + v_shift / 2;
+	u16 *it_end = (u16 *)screen->TileBuffer +
+			(SCR_TB_PLANE_SIZE - (SCR_SPRITE_SIZE - v_shift) - SCR_TB_SPRITES_WIDTH) / 2;
 
 	// Screen buffer counter
-	u16 is = SCR_SCREEN_BUFFER_WIDTH * SCR_HUD_HEIGHT;
+	u16 is = SCR_SCREEN_BUFFER_WIDTH / 2 * SCR_HUD_HEIGHT;
 
-	for (; it < it_end; it += SCR_TB_PLANE_WIDTH, is += SCR_SCREEN_BUFFER_WIDTH) {
-		for (u16 i = 0; i < SCR_TB_PLANE_WIDTH - 1; i++) {
+	for (; it < it_end; it += SCR_TB_FULL_PLANE_WIDTH / 2, is += SCR_SCREEN_BUFFER_WIDTH / 2) {
+		for (u16 i = 0; i < (SCR_TB_PLANE_WIDTH - 1) / 2; i++) {
 			// Leave as-is. GCC optimizes it better all together like this instead of in
 			// separate variables.
 			*(dark + is + i) = (*(it + i) << shift_left) |
-					(*(it + i + 1) >> (SCR_SPRITE_SIZE - shift_left));
-			*(light + is + i) = (*(it + i + SCR_TB_PLANE_SIZE) << shift_left) |
-					(*(it + i + SCR_TB_PLANE_SIZE + 1) >> (SCR_SPRITE_SIZE - shift_left));
+					(*(it + i + 1) >> (16 - shift_left));
+			*(light + is + i) = (*(it + i + SCR_TB_PLANE_SIZE / 2) << shift_left) |
+					(*(it + i + SCR_TB_PLANE_SIZE / 2 + 1) >> (16 - shift_left));
 		}
 	}
 }
@@ -220,7 +217,10 @@ void SCR_dispDebug(const char *format, ...)
 
 	va_list arglist;
 	va_start(arglist, format);
+
+	printf("\n");
 	vprintf(format, arglist);
+
 	va_end(arglist);
 
 	DrawStr(1, 1, "Hey presto! A debugging message for you:", A_NORMAL);
@@ -258,11 +258,11 @@ void SCR_TB_shift(struct SCR_Screen *screen, enum SCR_TB_Dir dir, u16 amount)
 	u8 *buf = screen->TileBuffer;
 	switch (dir) {
 	case SCR_TB_Dir_LEFT:
-		for (u8 *i = buf; i < buf + SCR_TB_BUFFER_SIZE; i += SCR_TB_PLANE_WIDTH)
+		for (u8 *i = buf; i < buf + SCR_TB_BUFFER_SIZE; i += SCR_TB_FULL_PLANE_WIDTH)
 			memmove(i, i + amount, SCR_TB_PLANE_WIDTH - amount);
 		break;
 	case SCR_TB_Dir_RIGHT:
-		for (u8 *i = buf; i < buf + SCR_TB_BUFFER_SIZE; i += SCR_TB_PLANE_WIDTH)
+		for (u8 *i = buf; i < buf + SCR_TB_BUFFER_SIZE; i += SCR_TB_FULL_PLANE_WIDTH)
 			memmove(i + amount, i, SCR_TB_PLANE_WIDTH - amount);
 		break;
 	case SCR_TB_Dir_UP:
@@ -295,7 +295,8 @@ void SCR_TB_drawTile(struct SCR_Screen *screen, const struct MAP_TileDef *tile, 
 	// Air is intentionally drawn because tiles shifted out in SCR_TB_shift are not erased, so
 	// air will erase them.
 	// TODO: Coalesce `dark + offset`? Make local variables to sprites to draw?
-	for (u16 row = 0, offset = 0; row < SCR_SPRITE_SIZE; row++, offset += SCR_TB_PLANE_WIDTH) {
+	for (u16 row = 0, offset = 0; row < SCR_SPRITE_SIZE;
+			row++, offset += SCR_TB_FULL_PLANE_WIDTH) {
 		*(dark + offset) = bank[tile->Back][SCR_SPRITE_DARK][row];
 		*(light + offset) = bank[tile->Back][SCR_SPRITE_LIGHT][row];
 

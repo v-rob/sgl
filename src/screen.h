@@ -163,25 +163,29 @@ void SCR_dispError(const char *text1, const char *text2);
 
 	The tile buffer is a single chunk of memory holding a back and front buffer. Each buffer
 	has enough space to hold SCR_SCROLL_SPRITES in the X and Y directions. Each sprite is
-	aligned to a multiple of eight boundary and is only shifted pixel amounts when drawing the
-	tile buffer to the screen.
+	aligned to a byte boundary and is only shifted pixel amounts when drawing the tile buffer
+	to the screen. There is a catch: after each row of pixels, there is one blank padding byte
+	to align each row to a u16 boundary, which makes `SCR_drawTileBuffer` much faster than
+	single byte copying.
 */
 
-// Note: Width and size are in bytes, while height is in other units, usually to be used as a
+// Note: WIDTH and SIZE are in bytes, while height is in other units, usually to be used as a
 // multiplier for width.
 
 // Width in bytes of one row of sprites
-#define SCR_TB_SPRITES_WIDTH (SCR_SCROLL_SPRITES_X * SCR_SPRITE_SIZE)
+#define SCR_TB_SPRITES_WIDTH ((SCR_SCROLL_SPRITES_X + 1) * SCR_SPRITE_SIZE)
 // Height in sprites of one plane
 #define SCR_TB_SPRITES_HEIGHT SCR_SCROLL_SPRITES_Y
 
-// Width in bytes of one row of pixels
+// Width in bytes of one row of pixels, including invisible alignment byte
+#define SCR_TB_FULL_PLANE_WIDTH (SCR_SCROLL_SPRITES_X + 1)
+// Width in bytes of one row of visible pixels.
 #define SCR_TB_PLANE_WIDTH SCR_SCROLL_SPRITES_X
 // Height in pixels of one plane
 #define SCR_TB_PLANE_HEIGHT (SCR_SCROLL_SPRITES_Y * SCR_SPRITE_SIZE)
 
 // Size in bytes of one plane
-#define SCR_TB_PLANE_SIZE (SCR_TB_PLANE_WIDTH * SCR_TB_PLANE_HEIGHT)
+#define SCR_TB_PLANE_SIZE (SCR_TB_FULL_PLANE_WIDTH * SCR_TB_PLANE_HEIGHT)
 // Size in bytes of the whole buffer
 #define SCR_TB_BUFFER_SIZE (SCR_TB_PLANE_SIZE * 2)
 

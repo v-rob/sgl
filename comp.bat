@@ -33,7 +33,7 @@ if %1==vs (
 	del *.obj
 )
 if %1==68k (
-	tigcc -Wall -Wextra -Wno-missing-field-initializers -std=c99 -O2 %files% -o %name%
+	tigcc -Wall -Wextra -Wno-missing-field-initializers -std=gnu99 -O2 %files% -o %name%
 )
 
 :: Run if there is no error
