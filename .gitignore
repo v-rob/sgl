@@ -2,6 +2,8 @@ sgl.9xz
 sgl.89z
 sgl.v2z
 *.s
+*.o
+.cflags
 # TODO: Remove when computer source is removed
 SDL2.dll
 comp_src/SDL2/
