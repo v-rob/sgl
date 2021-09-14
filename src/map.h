@@ -1,4 +1,4 @@
-// Super Grayland: Copyright 2021 Vincent Robinson under the MIT license.
+// Super Grayland: Copyright 2021 Vincent Robinson under the zlib license.
 // See `license.txt` for more information.
 // Before delving into the code, please read `readme_source.txt` to understand the basic design.
 
@@ -63,7 +63,8 @@ enum MAP_BuiltInSpecial {
 	MAP_BuiltInSpecial_LAMPPOST
 };
 
-// A definition of a tile.
+// A definition of a tile. This struct should be kept smallish to ensure tile definitions don't
+// take too much memory.
 struct MAP_TileDef
 {
 	// 6 bytes

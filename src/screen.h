@@ -1,4 +1,4 @@
-// Super Grayland: Copyright 2021 Vincent Robinson under the MIT license.
+// Super Grayland: Copyright 2021 Vincent Robinson under the zlib license.
 // See `license.txt` for more information.
 // Before delving into the code, please read `readme_source.txt` to understand the basic design.
 
@@ -8,7 +8,7 @@
 
 #include "map.h"
 
-// SCR Namespace: Screen
+// SCR Namespace: Screen drawing routines
 /*
 	Everything in the SCR namespace operates on the screen. All functions that draw to the
 	screen buffer itself are in this namespace. Ideally, no code should touch tigcclib drawing
@@ -81,6 +81,10 @@
 // A buffer large enough to hold a single sprite.
 typedef u8 SCR_SpriteBuffer[3][SCR_SPRITE_SIZE];
 
+// Defines the dimensions of something in pixels
+typedef s16 SCR_Pixel;
+#define SCR_Pixel_POINT 3
+
 // A struct containing all data relevant to the screen.
 struct SCR_Screen
 {
@@ -99,10 +103,6 @@ struct SCR_Screen
 	FILES ObjBankFile;
 	const SCR_SpriteBuffer *ObjBank;
 };
-
-// Defines the dimensions of something in pixels
-typedef s16 SCR_Pixel;
-#define SCR_Pixel_POINT 3
 
 // Initializes the screen by starting grayscale, allocating screen buffers, and loading sprites.
 void SCR_init(struct SCR_Screen *screen);
@@ -137,6 +137,11 @@ void SCR_drawRect(SCR_Pixel x, SCR_Pixel y, SCR_Pixel w, SCR_Pixel h, enum SCR_S
 // Draw a tile directly to the screen without using the tile buffer.
 void SCR_drawTile(const struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
 		const struct MAP_TileDef *tile);
+
+struct OBJ_Object;
+
+// Draw an object to the screen.
+void SCR_drawObject(const struct OBJ_Object *obj);
 
 // Draws the tile buffer to the screen, shifting it a specified number of pixels to the top left
 // corner of the screen, where the shift must be in the range [0, 7]. Drawing the tile buffer

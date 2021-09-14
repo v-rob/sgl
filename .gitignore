@@ -2,7 +2,8 @@ sgl.9xz
 sgl.89z
 sgl.v2z
 *.s
-# TODO: Remove when computer source is removed
+*.o
+# TODO: Remove when comp_src is removed
 SDL2.dll
 comp_src/SDL2/
 sgl.exe

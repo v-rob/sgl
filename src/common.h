@@ -1,4 +1,4 @@
-// Super Grayland: Copyright 2021 Vincent Robinson under the MIT license.
+// Super Grayland: Copyright 2021 Vincent Robinson under the zlib license.
 // See `license.txt` for more information.
 // Before delving into the code, please read `readme_source.txt` to understand the basic design.
 
@@ -39,7 +39,8 @@ typedef _Bool bool;
 #define TRUE 1
 #define FALSE 0
 
-/* Debugging:
+// Debugging:
+/*
 	Primitive debugging can be enabled by defining the DEBUG macro. A warning will be issued
 	when debugging is enabled. There are two debugging methods:
 	* Use a reserved register to view values. The TiEmu debugger can show register values, so
@@ -53,7 +54,8 @@ typedef _Bool bool;
 register s32 Debug asm("d7");
 #endif
 
-/* FXD Namespace: Fixed point utilities
+// FXD Namespace: Fixed point utilities
+/*
 	Super Grayland primarily uses fixed point because of the lack of fast floats on the 68k calcs,
 	but there are actually other very nice benefits:
 	* Fixed point numbers have absolute precision, so they lose no precision when they get big.
@@ -112,7 +114,7 @@ register s32 Debug asm("d7");
 // Round a fixed point number up
 #define FXD_ceil(type, num) ((((num) - 1) + FXD_denom(type)) & ~FXD_denomMask(type))
 
-// TODO: Test mult and div
+// TODO: Test mult and div. Do they work with signed numbers?
 // Muliply two fixed point numbers. The most significant `<type>_POINT` bytes will be truncated.
 #define FXD_mult(type, num1, num2) (((num1) * (num2)) >> type##_POINT)
 // Divide one fixed point number by another. The most significant `<type>_POINT` bytes will be
@@ -140,7 +142,8 @@ register s32 Debug asm("d7");
 			_num >> (from_type##_POINT - to_type##_POINT);	\
 })
 
-/* COM Namespace: Common programming utilities
+// COM Namespace: Common programming utilities
+/*
 	This namespace holds many basic utilities that are used throughout the source code.
 */
 
@@ -148,7 +151,8 @@ register s32 Debug asm("d7");
 // instead of `struct SomeStruct = {}` because that may not fully fill structs containing unions
 // to zero. Since NULL and H_NULL are zero and there are no other non-zero implementation
 // defined "zero" values, memset is fine for the calculator.
-#define COM_zero(str) memset((str), 0, sizeof(*(str)))
+// TODO: Zero union before init instead of this function?
+#define COM_zero(strct) memset((strct), 0, sizeof(*(strct)))
 
 // Get the larger of two integers
 #define COM_max(a, b)			\
@@ -187,7 +191,8 @@ register s32 Debug asm("d7");
 	ngetchx();											\
 })
 
-/* Error handling
+// Error handling
+/*
 	To throw an error, use COM_throwErr with a COM_Error and an optional extra information
 	string as the parameters. This thrown error can then be caught with the standard TI-OS TRY
 	block. COM_Error contains a list of recurring errors that can happen in multiple places in

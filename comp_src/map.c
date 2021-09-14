@@ -1,4 +1,4 @@
-// Super Grayland, Copyright (t) 2020 Matthew Robinson under the MIT license. See 'LICENSE.txt' for more information.
+// Super Grayland, Copyright (t) 2020 Matthew Robinson under the zlib license. See 'LICENSE.txt' for more information.
 
 #include "map.h"
 #include "obj.h"

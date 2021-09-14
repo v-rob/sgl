@@ -1,11 +1,12 @@
-// Super Grayland: Copyright 2021 Vincent Robinson under the MIT license.
+// Super Grayland: Copyright 2021 Vincent Robinson under the zlib license.
 // See `license.txt` for more information.
 // Before delving into the code, please read `readme_source.txt` to understand the basic design.
 
+#include "object.h"
 #include "screen.h"
 
-// Temporary sprites, will be externalized to a file later.
-const SCR_SpriteBuffer TempTileSprites[] = {
+// Temporary sprites; sprites will be externalized to a file later.
+const SCR_SpriteBuffer TEMP_TILE_SPRITES[] = {
 	{
 		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
@@ -28,11 +29,13 @@ const SCR_SpriteBuffer TempTileSprites[] = {
 	},
 };
 
-// "SUPER GRAYLAND" text for large screens. Disgusting for now, but will be externalized.
-const u16 TempTitle[97 * 2] = {
+// "SUPER GRAYLAND" text for large screens. Disgusting for now, but will be put into an external
+// file later, along with all the other sprites.
+const u16 TEMP_TITLE[97 * 2] = {
 	0b1110000000000111, 0b1100000000000011, 0b1100111111110011, 0b1100111111110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1110000000000011, 0b1100000000000011, 0b1100111111111111, 0b1100111111111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000000000011, 0b1100000000000011, 0b1100111001111111, 0b1100111001111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1111111111110011, 0b1111111111110011, 0b1111111111110011, 0b1111111111110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000001111111, 0b1100000001111111, 0b1111111000000011, 0b1111111000000011, 0b1100000001111111, 0b1100000001111111, 0b1111111111111111, 0b1100000000000011, 0b1100000000000011, 0b1100111001111111, 0b1100111001111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000001110011, 0b1100000001000011, 0b1100111000001111, 0b1100111000111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100111000000011, 0b1100111000000011, 0b1100111001110011, 0b1100111111110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1111111111111111, 0b1100000001110011, 0b1100000001000011, 0b1100111000001111, 0b1100111000111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100111111110011, 0b1100111001110011, 0b1100111001110011, 0b1100111001110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000001111111, 0b1100000001111111, 0b1100111001111111, 0b1100111001111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100000000000011, 0b1100000000000011, 0b1111111111110011, 0b1111111111110011, 0b1100000000000011, 0b1100000000000011, 0b1111111111111111, 0b1100111000000011, 0b1100111000000011, 0b1100111001110011, 0b1100111001110011, 0b1100000001110011, 0b1100000001110011
 };
 
+// TODO: Garbage collect or alloc high?
 void SCR_init(struct SCR_Screen *screen)
 {
 	// Most things in SGL that use a system font use the small font.
@@ -59,7 +62,7 @@ void SCR_init(struct SCR_Screen *screen)
 		COM_throwErr(COM_Error_FILE, "sgl\\objects");
 	screen->ObjBank = HeapDeref(screen->ObjBankFile.dataH) */
 
-	screen->TileBank = TempTileSprites;
+	screen->TileBank = TEMP_TILE_SPRITES;
 
 	return;
 }
@@ -98,7 +101,7 @@ void SCR_clear(void)
 	}
 }
 
-void redrawBorderAndTitle(void)
+static void redrawBorderAndTitle(void)
 {
 	u8 *dark  = GrayDBufGetHiddenPlane(DARK_PLANE);
 	u8 *light = GrayDBufGetHiddenPlane(LIGHT_PLANE);
@@ -117,8 +120,8 @@ void redrawBorderAndTitle(void)
 	memset(light + SCR_LARGE_OFFSET_BYTES_END, 0xFF,
 			SCR_SCREEN_BUFFER_SIZE - SCR_LARGE_OFFSET_BYTES_END);
 
-	Sprite16(16, 16, 97, TempTitle, dark,  SPRT_RPLC);
-	Sprite16(16, 16, 97, TempTitle, light, SPRT_RPLC);
+	Sprite16(16, 16, 97, TEMP_TITLE, dark,  SPRT_RPLC);
+	Sprite16(16, 16, 97, TEMP_TITLE, light, SPRT_RPLC);
 }
 
 void SCR_drawBorder(void)
@@ -180,10 +183,18 @@ void SCR_drawTile(const struct SCR_Screen *screen, SCR_Pixel x, SCR_Pixel y,
 	ClipSprite8(x, y, SCR_SPRITE_SIZE, bank[tile->Front][SCR_SPRITE_LIGHT], light, SPRT_OR);
 }
 
+void SCR_drawObject(const struct OBJ_Object *obj)
+{
+	const struct OBJ_ObjectDef *def = OBJ_getDef(obj->Type);
+	(void)def;
+	// TODO: This needs to be implemented
+}
+
+// TODO: Only shift in one direction? Could speed it up.
 void SCR_drawTileBuffer(const struct SCR_Screen *screen, SCR_Pixel shift_left, SCR_Pixel shift_up)
 {
 	// There are a lot of divisions by two because this function uses u16s instead of u8s, which
-	// are _vaaastly_ faster, tripling the framerate. Potentially, u32s could be faster, but
+	// are _vaaastly_ faster, tripling the framerate. Potentially, u32s might be faster, but
 	// the screen buffer rows are 30 bytes, which is not divisible by four, so there's no way
 	// to use them.
 
@@ -332,8 +343,6 @@ void SCR_TB_shift(struct SCR_Screen *screen, enum SCR_TB_Dir dir, u16 amount)
 			u16 offset = SCR_TB_SPRITES_WIDTH * amount;
 			memmove(buf + offset, buf, SCR_TB_BUFFER_SIZE - offset);
 		}
-		break;
-	default:
 		break;
 	}
 }

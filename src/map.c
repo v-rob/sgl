@@ -1,11 +1,11 @@
-// Super Grayland: Copyright 2021 Vincent Robinson under the MIT license.
+// Super Grayland: Copyright 2021 Vincent Robinson under the zlib license.
 // See `license.txt` for more information.
 // Before delving into the code, please read `readme_source.txt` to understand the basic design.
 
 #include "map.h"
 
 // Load a temporary test map
-struct MAP_TileDef TempDefs[4] = {
+struct MAP_TileDef TEMP_DEFS[4] = {
 	{0, 0, 0, MAP_Collision_AIR, MAP_Property_NORMAL},
 	{3, 1, 0, MAP_Collision_SOLID, MAP_Property_NORMAL},
 	{2, 0, 0, MAP_Collision_AIR, MAP_Property_NORMAL},
@@ -17,7 +17,7 @@ struct MAP_TileDef TempDefs[4] = {
 #define t 2
 #define o 3
 
-MAP_TileIndex TempIndices[40 * 20] = {
+MAP_TileIndex TEMP_INDICES[40 * 20] = {
 	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
 	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
 	_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,
@@ -42,8 +42,8 @@ MAP_TileIndex TempIndices[40 * 20] = {
 
 void MAP_init(struct MAP_Map *map)
 {
-	map->Defs = TempDefs;
-	map->Indices = TempIndices;
+	map->Defs = TEMP_DEFS;
+	map->Indices = TEMP_INDICES;
 
 	map->SizeX = 40;
 	map->SizeY = 20;

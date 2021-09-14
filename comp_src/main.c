@@ -1,4 +1,4 @@
-// Super Grayland, Copyright 2020 Vincent Robinson under the MIT license. See 'LICENSE.txt' for more information.
+// Super Grayland, Copyright 2020 Vincent Robinson under the zlib license. See 'LICENSE.txt' for more information.
 
 // Please see 'common.h' for documentation on the types and important nuances of Super Grayland's source code.
 // All other headers have detailed information on globals, functions, and constants. Implementations are highly commented.

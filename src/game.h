@@ -1,4 +1,4 @@
-// Super Grayland: Copyright 2021 Vincent Robinson under the MIT license.
+// Super Grayland: Copyright 2021 Vincent Robinson under the zlib license.
 // See `license.txt` for more information.
 // Before delving into the code, please read `readme_source.txt` to understand the basic design.
 
@@ -9,7 +9,7 @@
 #include "map.h"
 #include "screen.h"
 
-// GME Namespace: Main game data
+// GME Namespace: Main game handling and data
 /*
 	All the game data is held in the GME namespace. All data is ultimately held in the GME_Game
 	superstruct. The game can be in multiple states, such as the main menu, a level, or the

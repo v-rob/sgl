@@ -1,4 +1,4 @@
-// Super Grayland: Copyright 2021 Vincent Robinson under the MIT license.
+// Super Grayland: Copyright 2021 Vincent Robinson under the zlib license.
 // See `license.txt` for more information.
 // Before delving into the code, please read `readme_source.txt` to understand the basic design.
 
@@ -98,6 +98,8 @@ void GME_deInit(struct GME_Game *game)
 void GME_deInitState(struct GME_Game *game)
 {
 	switch (game->State) {
+	case GME_State_NONE:
+		break;
 	case GME_State_MAIN_MENU:
 		GME_MM_deInit(game);
 		break;
@@ -107,8 +109,6 @@ void GME_deInitState(struct GME_Game *game)
 	case GME_State_EDITOR:
 		GME_EDT_deInit(game);
 		break;
-	default:
-		break;
 	}
 
 	game->State = GME_State_NONE;
@@ -117,6 +117,8 @@ void GME_deInitState(struct GME_Game *game)
 void GME_loop(struct GME_Game *game)
 {
 	switch (game->State) {
+	case GME_State_NONE:
+		break;
 	case GME_State_MAIN_MENU:
 		GME_MM_loop(game);
 		break;
@@ -125,8 +127,6 @@ void GME_loop(struct GME_Game *game)
 		break;
 	case GME_State_EDITOR:
 		GME_EDT_loop(game);
-		break;
-	default:
 		break;
 	}
 }
